@@ -918,6 +918,7 @@ function getNextDirtyFields(
       'routingStrategy',
       'routingSessionAffinity',
       'routingSessionAffinityTTL',
+      'codexIdentityConfuse',
     ] as Array<keyof VisualConfigValues>
   ).forEach(updateScalarDirty);
 
@@ -1072,6 +1073,7 @@ export function useVisualConfig() {
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
       const plugins = asRecord(parsed.plugins);
+      const codex = asRecord(parsed.codex);
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
 
@@ -1177,6 +1179,9 @@ export function useVisualConfig() {
               : typeof routing?.['sessionAffinityTTL'] === 'string'
                 ? routing['sessionAffinityTTL']
                 : '',
+        codexIdentityConfuse: Boolean(
+          codex?.['identity-confuse'] ?? codex?.identityConfuse ?? codex?.['identityConfuse']
+        ),
 
         payloadDefaultRules: parsePayloadRules(payload?.default),
         payloadDefaultRawRules: parseRawPayloadRules(payload?.['default-raw']),
@@ -1491,6 +1496,12 @@ export function useVisualConfig() {
           deleteIfMapEmpty(doc, ['routing']);
         }
 
+        if (dirtyFields.has('codexIdentityConfuse')) {
+          ensureMapInDoc(doc, ['codex']);
+          setBooleanInDoc(doc, ['codex', 'identity-confuse'], values.codexIdentityConfuse);
+          deleteIfMapEmpty(doc, ['codex']);
+        }
+
         const keepaliveSeconds =
           typeof values.streaming?.keepaliveSeconds === 'string'
             ? values.streaming.keepaliveSeconds
@@ -1592,7 +1603,7 @@ export function useVisualConfig() {
   return {
     visualValues,
     visualDirty,
-    /** 脏字段的叶值键集合（streaming 为点号叶），供 tab 脏点 / 头部计数消费。 */
+    /** Dirty leaf keys, with dotted paths for streaming fields. */
     visualDirtyFields: dirtyFields as ReadonlySet<string>,
     visualParseError,
     visualValidationErrors,

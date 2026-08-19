@@ -13,6 +13,11 @@ export type BuiltInOAuthProvider = 'codex' | 'anthropic' | 'antigravity' | 'kimi
 export interface OAuthStartResponse {
   url: string;
   state?: string;
+  proxy_ip?: string;
+}
+
+export interface OAuthStartOptions {
+  proxyUrl?: string;
 }
 
 export interface OAuthCallbackResponse {
@@ -30,11 +35,19 @@ const normalizeProviderForManagementPath = (provider: string): string => {
 };
 
 export const oauthApi = {
-  startAuth: (provider: string) => {
+  startAuth: (provider: string, options?: OAuthStartOptions) => {
     const providerKey = normalizeProviderForManagementPath(provider);
     const params: Record<string, string | boolean> = {};
     if (WEBUI_SUPPORTED.has(providerKey)) {
       params.is_webui = true;
+    }
+    const proxyUrl = options?.proxyUrl?.trim() ?? '';
+    if (providerKey === 'codex' && proxyUrl) {
+      return apiClient.post<OAuthStartResponse>(
+        `/${providerKey}-auth-url`,
+        { proxy_url: proxyUrl },
+        { params }
+      );
     }
     return apiClient.get<OAuthStartResponse>(`/${providerKey}-auth-url`, {
       params: Object.keys(params).length ? params : undefined,

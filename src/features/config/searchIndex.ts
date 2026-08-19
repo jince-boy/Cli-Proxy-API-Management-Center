@@ -1,11 +1,11 @@
 // Search index for the visual config editor's global "jump to field" search.
 //
 // IMPORTANT: this index is maintained by hand and is NOT what drives field
-// rendering — it only powers search. When you add, remove, or move a field in
+// rendering; it only powers search. When you add, remove, or move a field in
 // components/sections/*.tsx (or fields/sharedFields.tsx), update the matching
 // entry here, wrap the field's JSX in <FieldAnchor fieldId="..."> with the same
 // `fieldId`, and map it in constants.ts FIELD_VALUE_KEYS.
-// tests/configFieldParity.test.ts enforces the three-way parity — a missing or
+// tests/configFieldParity.test.ts enforces three-way parity. A missing or
 // extra entry anywhere fails CI.
 
 export type VisualSectionId =
@@ -20,7 +20,7 @@ export interface ConfigFieldSearchEntry {
   /** Optional secondary i18n key shown next to the label to disambiguate duplicates
    *  (e.g. Claude vs Codex "User-Agent"). Also searchable. */
   qualifierKey?: string;
-  /** Optional hint i18n key — searchable but not shown in results. */
+  /** Optional hint i18n key; searchable but not shown in results. */
   hintKey?: string;
   /** Backend YAML key aliases, e.g. ['proxy-url']. Static strings (language-agnostic). */
   yamlKeys?: string[];
@@ -28,7 +28,7 @@ export interface ConfigFieldSearchEntry {
   keywords?: string[];
 }
 
-/** DOM id for a field anchor — kept in one place so the index and the anchors agree. */
+/** DOM ID for a field anchor, shared by the index and rendered anchors. */
 export const configFieldDomId = (fieldId: string) => `cfg-field-${fieldId}`;
 
 type Translate = (key: string) => string;
@@ -37,7 +37,7 @@ type Translate = (key: string) => string;
 const L = (key: string) => `config_management.visual.${key}`;
 
 export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
-  // ── connectivity ──────────────────────────────────────────────────────────
+  // Connectivity
   {
     fieldId: 'host',
     sectionId: 'connectivity',
@@ -117,7 +117,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     labelKey: L('sections.remote.panel_repo'),
     yamlKeys: ['remote-management', 'panel-github-repository'],
   },
-  // ── network ───────────────────────────────────────────────────────────────
+  // Network
   {
     fieldId: 'proxyUrl',
     sectionId: 'network',
@@ -177,6 +177,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     fieldId: 'routingSessionAffinityTTL',
     sectionId: 'network',
     labelKey: L('sections.network.session_affinity_ttl'),
+    hintKey: L('sections.network.session_affinity_ttl_desc'),
     yamlKeys: ['routing', 'session-affinity-ttl'],
   },
   {
@@ -204,7 +205,16 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     fieldId: 'routingSessionAffinity',
     sectionId: 'network',
     labelKey: L('sections.network.session_affinity'),
+    hintKey: L('sections.network.session_affinity_desc'),
     yamlKeys: ['routing', 'session-affinity'],
+  },
+  {
+    fieldId: 'codexIdentityConfuse',
+    sectionId: 'network',
+    labelKey: L('sections.network.codex_identity_confuse'),
+    hintKey: L('sections.network.codex_identity_confuse_desc'),
+    yamlKeys: ['codex', 'identity-confuse'],
+    keywords: ['codex', 'oai', 'installation-id', 'session-id', 'thread-id', 'turn-id'],
   },
   {
     fieldId: 'wsAuth',
@@ -214,7 +224,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     yamlKeys: ['ws-auth'],
     keywords: ['websocket'],
   },
-  // ── logging ───────────────────────────────────────────────────────────────
+  // Logging
   {
     fieldId: 'debug',
     sectionId: 'logging',
@@ -262,7 +272,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     hintKey: L('sections.system.usage_statistics_enabled_desc'),
     yamlKeys: ['usage-statistics-enabled'],
   },
-  // ── quota ─────────────────────────────────────────────────────────────────
+  // Quota
   {
     fieldId: 'quotaSwitchProject',
     sectionId: 'quota',
@@ -283,7 +293,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     labelKey: L('sections.quota.antigravity_credits'),
     yamlKeys: ['quota-exceeded', 'antigravity-credits'],
   },
-  // ── streaming ─────────────────────────────────────────────────────────────
+  // Streaming
   {
     fieldId: 'streamingKeepaliveSeconds',
     sectionId: 'streaming',
@@ -305,7 +315,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     hintKey: L('sections.streaming.nonstream_keepalive_hint'),
     yamlKeys: ['streaming', 'nonstream-keepalive-interval'],
   },
-  // ── advanced ──────────────────────────────────────────────────────────────
+  // Advanced
   {
     fieldId: 'pluginsEnabled',
     sectionId: 'advanced',
@@ -341,7 +351,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     hintKey: L('sections.system.antigravity_signature_strict_desc'),
     yamlKeys: ['antigravity-signature-bypass-strict'],
   },
-  // Claude header defaults — qualifierKey disambiguates the shared "User-Agent" label.
+  // qualifierKey disambiguates the shared User-Agent label for Claude defaults.
   {
     fieldId: 'claudeHeaderUserAgent',
     sectionId: 'advanced',
@@ -416,7 +426,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     yamlKeys: ['codex-header-defaults', 'beta-features'],
     keywords: ['codex'],
   },
-  // ── payload (coarse: one entry per rule group) ──────────────────────────────
+  // Payload: one search entry per rule group.
   {
     fieldId: 'payloadDefaultRules',
     sectionId: 'payload',

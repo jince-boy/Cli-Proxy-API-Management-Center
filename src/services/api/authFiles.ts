@@ -12,6 +12,7 @@ import {
   normalizeUsageTotal,
 } from '@/utils/recentRequests';
 import { parseTimestampMs } from '@/utils/timestamp';
+import { readRequestsPerMinute } from '@/utils/requestsPerMinute';
 
 type StatusError = { status?: number };
 type AuthFileStatusResponse = { status: string; disabled: boolean };
@@ -22,6 +23,7 @@ export type AuthFileFieldsPatch = {
   headers?: Record<string, string>;
   priority?: number;
   weight?: number | null;
+  rpm?: number | null;
   disable_cooling?: boolean;
   'disable-cooling'?: boolean;
   websockets?: boolean;
@@ -252,6 +254,7 @@ const normalizeAuthFileEntry = (entry: AuthFileEntry): AuthFileEntry => {
   const modified = readDateField(entry);
   const priority = readIntegerField(entry['priority']);
   const weight = readIntegerField(entry['weight']);
+  const rpm = readRequestsPerMinute(entry['rpm']);
 
   return {
     ...entry,
@@ -264,6 +267,7 @@ const normalizeAuthFileEntry = (entry: AuthFileEntry): AuthFileEntry => {
     ...(modified > 0 ? { modified } : {}),
     priority,
     weight,
+    rpm,
     ...(note ? { note } : {}),
     ...(email ? { email } : {}),
     ...(projectId ? { projectId } : {}),

@@ -18,7 +18,7 @@ import { getValidationMessage } from '../blocks/shared';
 
 const Icon = CONFIG_TAB_ICONS.network;
 
-/** 02 网络配置：代理、重试、路由策略、图像生成开关与网络行为开关。 */
+/** Network settings: proxy, retries, routing, image generation, and transport behavior. */
 export function SectionNetwork({
   values,
   validationErrors,
@@ -191,10 +191,11 @@ export function SectionNetwork({
           <FieldAnchor fieldId="routingSessionAffinityTTL">
             <Input
               label={t('config_management.visual.sections.network.session_affinity_ttl')}
-              placeholder="1h"
+              placeholder="24h"
               value={values.routingSessionAffinityTTL}
               onChange={(e) => onChange({ routingSessionAffinityTTL: e.target.value })}
               disabled={disabled}
+              hint={t('config_management.visual.sections.network.session_affinity_ttl_desc')}
             />
           </FieldAnchor>
         </FieldGrid>
@@ -230,9 +231,21 @@ export function SectionNetwork({
           <FieldAnchor fieldId="routingSessionAffinity">
             <ToggleRow
               title={t('config_management.visual.sections.network.session_affinity')}
+              description={t('config_management.visual.sections.network.session_affinity_desc')}
               checked={values.routingSessionAffinity}
               disabled={disabled}
               onChange={(routingSessionAffinity) => onChange({ routingSessionAffinity })}
+            />
+          </FieldAnchor>
+          <FieldAnchor fieldId="codexIdentityConfuse">
+            <ToggleRow
+              title={t('config_management.visual.sections.network.codex_identity_confuse')}
+              description={t(
+                'config_management.visual.sections.network.codex_identity_confuse_desc'
+              )}
+              checked={values.codexIdentityConfuse}
+              disabled={disabled}
+              onChange={(codexIdentityConfuse) => onChange({ codexIdentityConfuse })}
             />
           </FieldAnchor>
           <FieldAnchor fieldId="wsAuth">

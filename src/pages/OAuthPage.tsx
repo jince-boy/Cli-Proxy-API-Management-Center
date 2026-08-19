@@ -26,6 +26,7 @@ import iconGrokDark from '@/assets/icons/grok-dark.svg';
 interface ProviderState {
   url?: string;
   state?: string;
+  proxyIp?: string;
   status?: 'idle' | 'waiting' | 'success' | 'error';
   error?: string;
   polling?: boolean;
@@ -246,6 +247,7 @@ export function OAuthPage() {
   const { showNotification } = useNotificationStore();
   const resolvedTheme = useThemeStore((state) => state.resolvedTheme);
   const [states, setStates] = useState<Record<string, ProviderState>>({});
+  const [codexProxyUrl, setCodexProxyUrl] = useState('');
   const [pluginProviders, setPluginProviders] = useState<PluginOAuthProviderCard[]>([]);
   const [vertexState, setVertexState] = useState<VertexImportState>({
     fileName: '',
@@ -361,6 +363,7 @@ export function OAuthPage() {
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      proxyIp: undefined,
       status: 'success',
       error: undefined,
       polling: false,
@@ -405,10 +408,12 @@ export function OAuthPage() {
   };
 
   const startAuth = async (provider: string) => {
+    const proxyUrl = provider === 'codex' ? codexProxyUrl.trim() : '';
     clearProviderTimers(provider);
     updateProviderState(provider, {
       url: undefined,
       state: undefined,
+      proxyIp: undefined,
       status: 'waiting',
       polling: true,
       error: undefined,
@@ -417,7 +422,7 @@ export function OAuthPage() {
       callbackUrl: '',
     });
     try {
-      const res = await oauthApi.startAuth(provider);
+      const res = await oauthApi.startAuth(provider, proxyUrl ? { proxyUrl } : undefined);
       if (!res.state) {
         const message = t('auth_login.missing_state');
         updateProviderState(provider, {
@@ -433,6 +438,7 @@ export function OAuthPage() {
       updateProviderState(provider, {
         url: res.url,
         state: res.state,
+        proxyIp: res.proxy_ip,
         status: 'waiting',
         polling: true,
       });
@@ -570,6 +576,8 @@ export function OAuthPage() {
 
   const renderOAuthProviderCard = (provider: OAuthProviderCard, featured = false) => {
     const state = states[provider.id] || {};
+    const isCodex = provider.kind === 'builtin' && provider.id === 'codex';
+    const codexProxyEnabled = isCodex && Boolean(codexProxyUrl.trim());
     const showKimiSignUp = featured && provider.kind === 'builtin' && provider.id === 'kimi';
     const canSubmitCallback =
       (provider.kind === 'plugin' || CALLBACK_SUPPORTED.has(provider.id)) && Boolean(state.url);
@@ -618,23 +626,53 @@ export function OAuthPage() {
           <div className={featured ? styles.featuredHint : styles.cardHint}>
             {getProviderText(provider, 'oauth_hint')}
           </div>
+          {isCodex && (
+            <div className={styles.codexProxySection}>
+              <Input
+                label={t('auth_login.codex_proxy_label')}
+                hint={t('auth_login.codex_proxy_hint')}
+                value={codexProxyUrl}
+                onChange={(event) => setCodexProxyUrl(event.target.value)}
+                placeholder={t('auth_login.codex_proxy_placeholder')}
+                disabled={Boolean(state.polling || (state.url && state.status !== 'error'))}
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <div className={styles.codexLoginNotice}>
+                {t('auth_login.codex_disabled_account_hint')}
+              </div>
+            </div>
+          )}
           {state.url && (
             <div className={styles.authUrlBox}>
               <div className={styles.authUrlLabel}>
                 {getProviderText(provider, 'oauth_url_label')}
               </div>
               <div className={styles.authUrlValue}>{state.url}</div>
+              {isCodex && state.proxyIp && (
+                <div className={styles.proxyExitIp}>
+                  <span>{t('auth_login.codex_proxy_ip_label')}</span>
+                  <strong>{state.proxyIp}</strong>
+                </div>
+              )}
+              {codexProxyEnabled && (
+                <div className={styles.fingerprintBrowserNotice}>
+                  {t('auth_login.codex_fingerprint_browser_hint')}
+                </div>
+              )}
               <div className={styles.authUrlActions}>
                 <Button variant="secondary" size="sm" onClick={() => copyLink(state.url!)}>
                   {getProviderText(provider, 'copy_link')}
                 </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => window.open(state.url, '_blank', 'noopener,noreferrer')}
-                >
-                  {getProviderText(provider, 'open_link')}
-                </Button>
+                {!codexProxyEnabled && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => window.open(state.url, '_blank', 'noopener,noreferrer')}
+                  >
+                    {getProviderText(provider, 'open_link')}
+                  </Button>
+                )}
               </div>
             </div>
           )}

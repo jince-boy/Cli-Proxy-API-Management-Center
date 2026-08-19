@@ -21,6 +21,8 @@ const makeEditor = (json: Record<string, unknown>, weight: string): PrefixProxyE
   priority: '',
   weight,
   weightError: null,
+  rpm: '',
+  rpmError: null,
   disableCooling: false,
   disableCoolingTouched: false,
   websockets: false,
@@ -63,6 +65,44 @@ describe('auth-file credential weight patch', () => {
   });
 });
 
+describe('Codex auth-file RPM patch', () => {
+  test('writes numeric RPM and uses null to remove the limit', () => {
+    expect(buildAuthFileFieldsPatch({ ...makeEditor({}, ''), rpm: '60' }, resolveError)).toEqual({
+      rpm: 60,
+    });
+    expect(
+      buildAuthFileFieldsPatch({ ...makeEditor({ rpm: 60 }, ''), rpm: '' }, resolveError)
+    ).toEqual({ rpm: null });
+    expect(
+      buildAuthFileFieldsPatch({ ...makeEditor({ rpm: '60' }, ''), rpm: '60' }, resolveError)
+    ).toEqual({});
+  });
+
+  test('accepts zero as unlimited and rejects invalid values', () => {
+    expect(buildAuthFileFieldsPatch({ ...makeEditor({}, ''), rpm: '0' }, resolveError)).toEqual({
+      rpm: 0,
+    });
+    expect(() =>
+      buildAuthFileFieldsPatch({ ...makeEditor({}, ''), rpm: '-1' }, resolveError)
+    ).toThrow('auth_files.rpm_invalid_integer');
+    expect(() =>
+      buildAuthFileFieldsPatch({ ...makeEditor({}, ''), rpm: '1.5' }, resolveError)
+    ).toThrow('auth_files.rpm_invalid_integer');
+    expect(() =>
+      buildAuthFileFieldsPatch({ ...makeEditor({}, ''), rpm: '1000001' }, resolveError)
+    ).toThrow('auth_files.rpm_invalid_max');
+  });
+
+  test('does not send RPM for a non-Codex credential', () => {
+    expect(
+      buildAuthFileFieldsPatch(
+        { ...makeEditor({}, ''), providerKey: 'claude', rpm: '60' },
+        resolveError
+      )
+    ).toEqual({});
+  });
+});
+
 describe('auth-file disable cooling patch', () => {
   test('reads canonical and legacy boolean-compatible metadata', () => {
     expect(readAuthFileDisableCooling({ disable_cooling: 'true' })).toBe(true);
@@ -96,9 +136,9 @@ describe('auth-file disable cooling patch', () => {
   });
 
   test('does not patch an untouched or unchanged override', () => {
-    expect(buildAuthFileFieldsPatch(makeEditor({ disable_cooling: true }, ''), resolveError)).toEqual(
-      {}
-    );
+    expect(
+      buildAuthFileFieldsPatch(makeEditor({ disable_cooling: true }, ''), resolveError)
+    ).toEqual({});
     expect(
       buildAuthFileFieldsPatch(
         {

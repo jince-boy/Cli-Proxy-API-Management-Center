@@ -121,6 +121,7 @@ export type VisualConfigValues = {
   routingStrategy: RoutingStrategy;
   routingSessionAffinity: boolean;
   routingSessionAffinityTTL: string;
+  codexIdentityConfuse: boolean;
   wsAuth: boolean;
   antigravitySignatureCacheEnabled: boolean;
   antigravitySignatureBypassStrict: boolean;
@@ -185,6 +186,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   routingStrategy: 'round-robin',
   routingSessionAffinity: false,
   routingSessionAffinityTTL: '',
+  codexIdentityConfuse: false,
   wsAuth: false,
   antigravitySignatureCacheEnabled: true,
   antigravitySignatureBypassStrict: false,

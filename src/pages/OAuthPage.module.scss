@@ -223,6 +223,45 @@
   gap: $spacing-sm;
 }
 
+.codexProxySection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.codexLoginNotice,
+.fingerprintBrowserNotice {
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--primary-color) 32%, var(--border-color));
+  border-radius: $radius-md;
+  background: color-mix(in srgb, var(--primary-color) 8%, var(--bg-primary));
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.fingerprintBrowserNotice {
+  margin-top: $spacing-xs;
+  color: var(--text-primary);
+}
+
+.proxyExitIp {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: $spacing-sm;
+  margin-top: $spacing-xs;
+  color: var(--text-secondary);
+  font-size: 13px;
+
+  strong {
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+  }
+}
+
 .callbackActions {
   display: flex;
   gap: $spacing-md;

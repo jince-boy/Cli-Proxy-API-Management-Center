@@ -16,6 +16,7 @@ import {
   supportsAuthFileWebsockets,
 } from '@/features/authFiles/constants';
 import { MAX_CREDENTIAL_WEIGHT } from '@/utils/credentialWeight';
+import { MAX_REQUESTS_PER_MINUTE } from '@/utils/requestsPerMinute';
 import { AuthFileExcludedModelsField } from './AuthFileExcludedModelsField';
 import styles from './AuthFileDetailsSheet.module.scss';
 
@@ -139,7 +140,8 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
               !dirty ||
               !editor?.json ||
               Boolean(editor?.headersTouched && editor.headersError) ||
-              Boolean(editor?.weightError)
+              Boolean(editor?.weightError) ||
+              Boolean(editor?.rpmError)
             }
           >
             {t('common.save')}
@@ -208,6 +210,21 @@ export function AuthFileDetailsSheet(props: AuthFileDetailsSheetProps) {
                     disabled={disableControls || editor.saving || !editor.json}
                     onChange={(e) => onChange('weight', e.target.value)}
                   />
+                  {editor.providerKey === 'codex' && (
+                    <Input
+                      label={t('auth_files.rpm_label')}
+                      type="number"
+                      min="0"
+                      step="1"
+                      max={MAX_REQUESTS_PER_MINUTE}
+                      value={editor.rpm}
+                      placeholder={t('auth_files.rpm_placeholder')}
+                      hint={t('auth_files.rpm_hint')}
+                      error={editor.rpmError ?? undefined}
+                      disabled={disableControls || editor.saving || !editor.json}
+                      onChange={(e) => onChange('rpm', e.target.value)}
+                    />
+                  )}
                   <div className="form-group">
                     <label>{t('auth_files.disable_cooling_label')}</label>
                     <ToggleSwitch

@@ -43,6 +43,7 @@ export interface AuthFileItem {
   modified?: number;
   priority?: number;
   weight?: number;
+  rpm?: number;
   note?: string;
   success?: unknown;
   failed?: unknown;

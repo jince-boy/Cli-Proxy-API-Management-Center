@@ -20,6 +20,12 @@ import {
   validateCredentialWeightText,
   type CredentialWeightError,
 } from '@/utils/credentialWeight';
+import {
+  parseRequestsPerMinuteText,
+  readRequestsPerMinute,
+  validateRequestsPerMinuteText,
+  type RequestsPerMinuteError,
+} from '@/utils/requestsPerMinute';
 
 type AuthFileHeaders = Record<string, string>;
 type AuthFileHeadersErrorKey =
@@ -29,13 +35,16 @@ type AuthFileHeadersErrorKey =
 type AuthFileContentErrorKey =
   'auth_files.prefix_proxy_invalid_json' | 'auth_files.prefix_proxy_html_challenge';
 type AuthFileWeightErrorKey = 'auth_files.weight_invalid_integer' | 'auth_files.weight_invalid_max';
-type AuthFileEditorErrorKey = AuthFileHeadersErrorKey | AuthFileWeightErrorKey;
+type AuthFileRPMErrorKey = 'auth_files.rpm_invalid_integer' | 'auth_files.rpm_invalid_max';
+type AuthFileEditorErrorKey =
+  AuthFileHeadersErrorKey | AuthFileWeightErrorKey | AuthFileRPMErrorKey;
 
 export type PrefixProxyEditorField =
   | 'prefix'
   | 'proxyUrl'
   | 'priority'
   | 'weight'
+  | 'rpm'
   | 'disableCooling'
   | 'websockets'
   | 'usingApi'
@@ -61,6 +70,8 @@ export type PrefixProxyEditorState = {
   priority: string;
   weight: string;
   weightError: string | null;
+  rpm: string;
+  rpmError: string | null;
   disableCooling: boolean;
   disableCoolingTouched: boolean;
   websockets: boolean;
@@ -131,6 +142,9 @@ const parseHeadersText = (
 
 const credentialWeightErrorKey = (error: CredentialWeightError): AuthFileWeightErrorKey =>
   error === 'max' ? 'auth_files.weight_invalid_max' : 'auth_files.weight_invalid_integer';
+
+const requestsPerMinuteErrorKey = (error: RequestsPerMinuteError): AuthFileRPMErrorKey =>
+  error === 'max' ? 'auth_files.rpm_invalid_max' : 'auth_files.rpm_invalid_integer';
 
 const normalizeTextField = (value: unknown): string =>
   typeof value === 'string' ? value.trim() : '';
@@ -317,6 +331,20 @@ export const buildAuthFileFieldsPatch = (
     patch.weight = nextWeight;
   }
 
+  if (editor.providerKey === 'codex') {
+    const rpmError = validateRequestsPerMinuteText(editor.rpm);
+    if (rpmError) {
+      throw new Error(resolveError(requestsPerMinuteErrorKey(rpmError)));
+    }
+    const originalRPM = readRequestsPerMinute(original.rpm);
+    const nextRPM = parseRequestsPerMinuteText(editor.rpm);
+    if (nextRPM === undefined) {
+      if (originalRPM !== undefined) patch.rpm = null;
+    } else if (nextRPM !== originalRPM) {
+      patch.rpm = nextRPM;
+    }
+  }
+
   if (editor.disableCoolingTouched) {
     const originalDisableCooling = readAuthFileDisableCooling(original);
     const nextDisableCooling = Boolean(editor.disableCooling);
@@ -416,6 +444,14 @@ const buildPrefixProxyUpdatedText = (
     }
   }
 
+  if (patch.rpm !== undefined) {
+    if (patch.rpm === null) {
+      delete next.rpm;
+    } else {
+      next.rpm = patch.rpm;
+    }
+  }
+
   if (patch.disable_cooling !== undefined) {
     next.disable_cooling = patch.disable_cooling;
   }
@@ -462,7 +498,8 @@ export function useAuthFilesPrefixProxyEditor(
 
   const hasBlockingValidationError = Boolean(
     (prefixProxyEditor?.headersTouched && prefixProxyEditor.headersError) ||
-    prefixProxyEditor?.weightError
+    prefixProxyEditor?.weightError ||
+    prefixProxyEditor?.rpmError
   );
   const prefixProxyUpdatedText =
     prefixProxyEditor && !hasBlockingValidationError
@@ -506,6 +543,8 @@ export function useAuthFilesPrefixProxyEditor(
       priority: '',
       weight: '',
       weightError: null,
+      rpm: '',
+      rpmError: null,
       disableCooling: false,
       disableCoolingTouched: false,
       websockets: false,
@@ -559,6 +598,7 @@ export function useAuthFilesPrefixProxyEditor(
       const proxyUrl = typeof json.proxy_url === 'string' ? json.proxy_url : '';
       const priority = parsePriorityValue(json.priority);
       const weight = readCredentialWeight(json.weight);
+      const rpm = providerKey === 'codex' ? readRequestsPerMinute(json.rpm) : undefined;
       const disableCooling = readAuthFileDisableCooling(json);
       const websockets = supportsAuthFileWebsockets(providerKey)
         ? readAuthFileWebsockets(json)
@@ -590,6 +630,8 @@ export function useAuthFilesPrefixProxyEditor(
           priority: priority !== undefined ? String(priority) : '',
           weight: weight !== undefined ? String(weight) : '',
           weightError: null,
+          rpm: rpm !== undefined ? String(rpm) : '',
+          rpmError: null,
           disableCooling,
           disableCoolingTouched: false,
           websockets,
@@ -632,6 +674,15 @@ export function useAuthFilesPrefixProxyEditor(
           ...prev,
           weight,
           weightError: error ? t(credentialWeightErrorKey(error)) : null,
+        };
+      }
+      if (field === 'rpm') {
+        const rpm = String(value);
+        const error = validateRequestsPerMinuteText(rpm);
+        return {
+          ...prev,
+          rpm,
+          rpmError: error ? t(requestsPerMinuteErrorKey(error)) : null,
         };
       }
       if (field === 'disableCooling') {
