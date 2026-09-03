@@ -123,6 +123,7 @@ export type VisualConfigValues = {
   routingSessionAffinityTTL: string;
   codexIdentityConfuse: boolean;
   wsAuth: boolean;
+  antigravitySensitiveWords: string[];
   antigravitySignatureCacheEnabled: boolean;
   antigravitySignatureBypassStrict: boolean;
   claudeHeaderUserAgent: string;
@@ -188,6 +189,7 @@ export const DEFAULT_VISUAL_VALUES: VisualConfigValues = {
   routingSessionAffinityTTL: '',
   codexIdentityConfuse: false,
   wsAuth: false,
+  antigravitySensitiveWords: [],
   antigravitySignatureCacheEnabled: true,
   antigravitySignatureBypassStrict: false,
   claudeHeaderUserAgent: '',

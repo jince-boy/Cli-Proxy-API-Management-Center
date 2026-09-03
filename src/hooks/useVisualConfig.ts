@@ -928,6 +928,15 @@ function getNextDirtyFields(
       areStringArraysEqual(nextValues.pluginStoreSources, baselineValues.pluginStoreSources)
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'antigravitySensitiveWords')) {
+    updateDirty(
+      'antigravitySensitiveWords',
+      areStringArraysEqual(
+        nextValues.antigravitySensitiveWords,
+        baselineValues.antigravitySensitiveWords
+      )
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'pluginStoreAuth')) {
     updateDirty(
       'pluginStoreAuth',
@@ -1073,6 +1082,7 @@ export function useVisualConfig() {
       const payload = asRecord(parsed.payload);
       const streaming = asRecord(parsed.streaming);
       const plugins = asRecord(parsed.plugins);
+      const antigravity = asRecord(parsed.antigravity);
       const codex = asRecord(parsed.codex);
       const claudeHeaderDefaults = asRecord(parsed['claude-header-defaults']);
       const codexHeaderDefaults = asRecord(parsed['codex-header-defaults']);
@@ -1129,6 +1139,7 @@ export function useVisualConfig() {
             : '',
         authAutoRefreshWorkers: String(parsed['auth-auto-refresh-workers'] ?? ''),
         wsAuth: Boolean(parsed['ws-auth']),
+        antigravitySensitiveWords: parseStringList(antigravity?.['sensitive-words']),
         antigravitySignatureCacheEnabled: Boolean(
           parsed['antigravity-signature-cache-enabled'] ?? true
         ),
@@ -1366,6 +1377,15 @@ export function useVisualConfig() {
           setIntFromStringInDoc(doc, ['auth-auto-refresh-workers'], values.authAutoRefreshWorkers);
         }
         if (dirtyFields.has('wsAuth')) setBooleanInDoc(doc, ['ws-auth'], values.wsAuth);
+        if (dirtyFields.has('antigravitySensitiveWords')) {
+          ensureMapInDoc(doc, ['antigravity']);
+          setStringListInDoc(
+            doc,
+            ['antigravity', 'sensitive-words'],
+            values.antigravitySensitiveWords
+          );
+          deleteIfMapEmpty(doc, ['antigravity']);
+        }
         if (dirtyFields.has('antigravitySignatureCacheEnabled')) {
           if (
             docHas(doc, ['antigravity-signature-cache-enabled']) ||
@@ -1603,7 +1623,7 @@ export function useVisualConfig() {
   return {
     visualValues,
     visualDirty,
-    /** Dirty leaf keys, with dotted paths for streaming fields. */
+    /** 脏字段的叶值键集合（streaming 为点号叶），供 tab 脏点 / 头部计数消费。 */
     visualDirtyFields: dirtyFields as ReadonlySet<string>,
     visualParseError,
     visualValidationErrors,
