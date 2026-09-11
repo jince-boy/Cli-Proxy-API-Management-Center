@@ -343,6 +343,7 @@
     "codex_turn_state_select_model": "選擇模型",
     "codex_turn_state_not_fetched": "尚未取得",
     "codex_turn_state_add_model": "新增模型",
+    "codex_turn_state_empty": "尚未設定模型，可以從這裡新增",
     "codex_turn_state_load_failed": "載入失敗",
     "codex_turn_state_refresh_success": "重新整理成功；上游未回傳新值時，表示目前值仍然有效。",
     "codex_turn_state_refresh_failed": "重新整理失敗，已保留舊值",

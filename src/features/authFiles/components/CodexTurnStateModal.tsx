@@ -18,6 +18,7 @@ type Props = {
 };
 
 type Row = { id: number; model: string; value: string };
+type MessageTone = 'success' | 'error';
 
 const fileAuthID = (file: AuthFileItem) =>
   typeof file.id === 'string' && file.id.trim() ? file.id.trim() : file.name.trim();
@@ -31,6 +32,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
   const [refreshing, setRefreshing] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<MessageTone>('success');
 
   useEffect(() => {
     if (!open || !file) return;
@@ -88,8 +90,10 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         proxy.trim() || undefined
       );
       updateRow(row.id, { value: result.value });
+      setMessageTone('success');
       setMessage(t('auth_files.codex_turn_state_refresh_success'));
     } catch (error) {
+      setMessageTone('error');
       setMessage(
         error instanceof Error ? error.message : t('auth_files.codex_turn_state_refresh_failed')
       );
@@ -109,8 +113,10 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         proxy.trim() || undefined
       );
       updateRow(row.id, { value: result.value });
+      setMessageTone('success');
       setMessage(t('auth_files.codex_turn_state_acquire_success'));
     } catch (error) {
+      setMessageTone('error');
       setMessage(
         error instanceof Error ? error.message : t('auth_files.codex_turn_state_acquire_failed')
       );
@@ -125,8 +131,10 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     setMessage('');
     try {
       await codexTurnStateApi.saveProxy(fileAuthID(file), proxy.trim());
+      setMessageTone('success');
       setMessage(t('auth_files.codex_turn_state_proxy_saved'));
     } catch (error) {
+      setMessageTone('error');
       setMessage(
         error instanceof Error ? error.message : t('auth_files.codex_turn_state_proxy_save_failed')
       );
@@ -161,6 +169,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         results.push(...batchResults);
       }
       setRows((current) => current.map((row) => results.find((item) => item.id === row.id) || row));
+      setMessageTone('success');
       setMessage(t('auth_files.codex_turn_state_refresh_all_done'));
     } finally {
       setRefreshing(false);
@@ -177,6 +186,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
       await codexTurnStateApi.remove(fileAuthID(file), row.model.trim());
       setRows((current) => current.filter((item) => item.id !== row.id));
     } catch (error) {
+      setMessageTone('error');
       setMessage(
         error instanceof Error ? error.message : t('auth_files.codex_turn_state_delete_failed')
       );
@@ -187,127 +197,171 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     <Modal
       open={open}
       onClose={onClose}
-      width={780}
+      width={720}
+      className={styles.modal}
       title={t('auth_files.codex_turn_state_title')}
-      footer={
-        <div className={styles.actions}>
-          <Button variant="secondary" onClick={onClose}>
-            {t('common.close')}
-          </Button>
-        </div>
-      }
     >
       <div className={styles.content}>
         <p className={styles.intro}>{t('auth_files.codex_turn_state_intro')}</p>
-        <div className={styles.proxyEditor}>
-          <Input
-            label={t('auth_files.codex_turn_state_proxy_label')}
-            value={proxy}
-            onChange={(event) => setProxy(event.target.value)}
-            placeholder="socks5://user:password@host:port"
-            hint={t('auth_files.codex_turn_state_proxy_hint')}
-          />
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void saveProxy()}
-            disabled={disableControls || loading || refreshing || savingProxy}
-            loading={savingProxy}
-          >
-            {t('common.save')}
-          </Button>
-        </div>
-        <div className={styles.toolbar}>
-          <strong>{t('auth_files.codex_turn_state_model_config')}</strong>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => void refreshAll()}
-            disabled={disableControls || refreshing || loading || !rows.length}
-          >
-            <IconRefreshCw size={14} /> {t('auth_files.codex_turn_state_refresh_all')}
-          </Button>
-        </div>
-        <div className={styles.tableHead}>
-          <span>{t('auth_files.codex_turn_state_model')}</span>
-          <span>{t('auth_files.codex_turn_state_value')}</span>
-          <span aria-hidden="true" />
-        </div>
-        {loading ? (
-          <LoadingSpinner size={18} />
-        ) : (
-          rows.map((row) => (
-            <div className={styles.row} key={row.id}>
-              <div className={styles.fieldControl}>
-                <select
-                  aria-label={t('auth_files.codex_turn_state_select_model')}
-                  className="input"
-                  value={row.model}
-                  onChange={(event) => updateRow(row.id, { model: event.target.value, value: '' })}
-                >
-                  <option value="">{t('auth_files.codex_turn_state_select_model')}</option>
-                  {modelOptions.map((item) => (
-                    <option key={item} value={item}>
-                      {item}
-                    </option>
-                  ))}
-                </select>
+        <section className={styles.section}>
+          <div className={styles.sectionHeading}>
+            <div>
+              <div className={styles.sectionTitle}>
+                {t('auth_files.codex_turn_state_proxy_label')}
               </div>
-              <div className={styles.valueField}>
-                <Input
-                  aria-label={t('auth_files.codex_turn_state_value')}
-                  value={row.value}
-                  placeholder={t('auth_files.codex_turn_state_not_fetched')}
-                  readOnly
-                />
+              <div className={styles.sectionHint}>
+                {t('auth_files.codex_turn_state_proxy_hint')}
               </div>
-              <div className={styles.rowActions}>
+            </div>
+          </div>
+          <div className={styles.proxyEditor}>
+            <Input
+              aria-label={t('auth_files.codex_turn_state_proxy_label')}
+              value={proxy}
+              onChange={(event) => setProxy(event.target.value)}
+              placeholder="socks5://user:password@host:port"
+              className={styles.compactInput}
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              className={styles.saveButton}
+              onClick={() => void saveProxy()}
+              disabled={disableControls || loading || refreshing || savingProxy}
+              loading={savingProxy}
+            >
+              {t('common.save')}
+            </Button>
+          </div>
+        </section>
+        <section className={styles.section}>
+          <div className={styles.toolbar}>
+            <div className={styles.sectionTitleGroup}>
+              <strong className={styles.sectionTitle}>
+                {t('auth_files.codex_turn_state_model_config')}
+              </strong>
+              <span className={styles.countBadge}>{rows.length}</span>
+            </div>
+            <div className={styles.toolbarActions}>
+              <Button
+                size="sm"
+                variant="ghost"
+                className={styles.toolbarButton}
+                onClick={() =>
+                  setRows((current) => [...current, { id: Date.now(), model: '', value: '' }])
+                }
+                disabled={refreshing || disableControls}
+              >
+                <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className={styles.toolbarButton}
+                onClick={() => void refreshAll()}
+                disabled={disableControls || refreshing || loading || !rows.length}
+              >
+                <IconRefreshCw size={14} /> {t('auth_files.codex_turn_state_refresh_all')}
+              </Button>
+            </div>
+          </div>
+          <div className={styles.tableHead}>
+            <span>{t('auth_files.codex_turn_state_model')}</span>
+            <span>{t('auth_files.codex_turn_state_value')}</span>
+            <span aria-hidden="true" />
+          </div>
+          <div className={styles.rows}>
+            {loading ? (
+              <div className={styles.loadingState}>
+                <LoadingSpinner size={18} />
+              </div>
+            ) : rows.length === 0 ? (
+              <div className={styles.emptyState}>
+                <span>{t('auth_files.codex_turn_state_empty')}</span>
                 <Button
                   size="sm"
                   variant="secondary"
-                  className={styles.iconButton}
-                  onClick={() => void refreshRow(row)}
-                  disabled={disableControls || refreshing || !row.model.trim()}
-                  title={t('common.refresh')}
+                  className={styles.toolbarButton}
+                  onClick={() => setRows([{ id: Date.now(), model: '', value: '' }])}
+                  disabled={refreshing || disableControls}
                 >
-                  <IconRefreshCw size={15} />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  className={styles.iconButton}
-                  onClick={() => void acquireRow(row)}
-                  disabled={disableControls || refreshing || !row.model.trim()}
-                  title={t('auth_files.codex_turn_state_acquire')}
-                >
-                  <IconDownload size={15} />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="danger"
-                  className={styles.iconButton}
-                  onClick={() => void deleteRow(row)}
-                  disabled={disableControls || refreshing}
-                  title={t('common.delete')}
-                >
-                  <IconTrash2 size={15} />
+                  <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
                 </Button>
               </div>
-            </div>
-          ))
-        )}
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() =>
-            setRows((current) => [...current, { id: Date.now(), model: '', value: '' }])
-          }
-          disabled={refreshing || disableControls}
-        >
-          <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
-        </Button>
+            ) : (
+              rows.map((row) => (
+                <div className={styles.row} key={row.id}>
+                  <div className={styles.fieldControl}>
+                    <select
+                      aria-label={t('auth_files.codex_turn_state_select_model')}
+                      className={`input ${styles.compactInput}`}
+                      value={row.model}
+                      onChange={(event) =>
+                        updateRow(row.id, { model: event.target.value, value: '' })
+                      }
+                    >
+                      <option value="">{t('auth_files.codex_turn_state_select_model')}</option>
+                      {modelOptions.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className={styles.valueField}>
+                    <Input
+                      aria-label={t('auth_files.codex_turn_state_value')}
+                      value={row.value}
+                      placeholder={t('auth_files.codex_turn_state_not_fetched')}
+                      className={`${styles.compactInput} ${styles.stateInput}`}
+                      readOnly
+                    />
+                  </div>
+                  <div className={styles.rowActions}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className={styles.iconButton}
+                      onClick={() => void refreshRow(row)}
+                      disabled={disableControls || refreshing || !row.model.trim()}
+                      title={t('common.refresh')}
+                      aria-label={t('common.refresh')}
+                    >
+                      <IconRefreshCw size={14} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className={styles.iconButton}
+                      onClick={() => void acquireRow(row)}
+                      disabled={disableControls || refreshing || !row.model.trim()}
+                      title={t('auth_files.codex_turn_state_acquire')}
+                      aria-label={t('auth_files.codex_turn_state_acquire')}
+                    >
+                      <IconDownload size={14} />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      className={styles.iconButton}
+                      onClick={() => void deleteRow(row)}
+                      disabled={disableControls || refreshing}
+                      title={t('common.delete')}
+                      aria-label={t('common.delete')}
+                    >
+                      <IconTrash2 size={14} />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
         {message && (
-          <div className={styles.error} role="status">
+          <div
+            className={`${styles.message} ${messageTone === 'error' ? styles.messageError : styles.messageSuccess}`}
+            role="status"
+          >
             {message}
           </div>
         )}
