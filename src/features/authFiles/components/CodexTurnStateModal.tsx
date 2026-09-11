@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { IconPlus, IconRefreshCw, IconTrash2 } from '@/components/ui/icons';
 import { authFilesApi } from '@/services/api';
-import { codexTurnStateApi, type CodexTurnStateItem } from '@/services/api/codexTurnState';
+import { codexTurnStateApi } from '@/services/api/codexTurnState';
 import type { AuthFileItem } from '@/types';
 import styles from './CodexTurnStateModal.module.scss';
 
@@ -15,13 +17,15 @@ type Props = {
   onClose: () => void;
 };
 
+type Row = { id: number; model: string; value: string };
+
 const fileAuthID = (file: AuthFileItem) =>
   typeof file.id === 'string' && file.id.trim() ? file.id.trim() : file.name.trim();
 
 export function CodexTurnStateModal({ file, open, disableControls, onClose }: Props) {
-  const [models, setModels] = useState<string[]>([]);
-  const [items, setItems] = useState<CodexTurnStateItem[]>([]);
-  const [model, setModel] = useState('');
+  const { t } = useTranslation();
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [rows, setRows] = useState<Row[]>([]);
   const [proxy, setProxy] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -35,13 +39,28 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     Promise.all([codexTurnStateApi.list(), authFilesApi.getModelsForAuthFile(file.name)])
       .then(([stateResponse, modelItems]) => {
         if (cancelled) return;
-        setItems(stateResponse.items ?? []);
-        const available = modelItems.map((item) => item.id).filter(Boolean);
-        setModels(available);
-        setModel((current) => current || available[0] || 'gpt-5.6-terra');
+        const models = modelItems.map((item) => item.id).filter(Boolean);
+        setAvailableModels(models);
+        const account = (stateResponse.items ?? []).find(
+          (item) => item.auth_id === fileAuthID(file) || item.name === file.name
+        );
+        const configured = Object.entries(account?.states ?? {}).map(([model, state], index) => ({
+          id: index + 1,
+          model,
+          value: state.value || '',
+        }));
+        setRows(
+          configured.length
+            ? configured
+            : [{ id: 1, model: models[0] || 'gpt-5.6-terra', value: '' }]
+        );
       })
       .catch((error) => {
-        if (!cancelled) setMessage(error instanceof Error ? error.message : '加载失败');
+        if (!cancelled) {
+          setMessage(
+            error instanceof Error ? error.message : t('auth_files.codex_turn_state_load_failed')
+          );
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -49,28 +68,83 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     return () => {
       cancelled = true;
     };
-  }, [file, open]);
+  }, [file, open, t]);
 
-  const account = useMemo(() => {
-    if (!file) return undefined;
-    const id = fileAuthID(file);
-    return items.find((item) => item.auth_id === id || item.name === file.name);
-  }, [file, items]);
-  const currentState = account?.states?.[model];
+  const modelOptions = useMemo(() => {
+    const values = new Set(availableModels);
+    rows.forEach((row) => row.model.trim() && values.add(row.model.trim()));
+    return Array.from(values);
+  }, [availableModels, rows]);
 
-  const refresh = async () => {
-    if (!file || !model.trim()) return;
+  const updateRow = (id: number, patch: Partial<Row>) =>
+    setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+
+  const refreshRow = async (row: Row) => {
+    if (!file || !row.model.trim()) return;
     setRefreshing(true);
     setMessage('');
     try {
-      await codexTurnStateApi.refresh(fileAuthID(file), model.trim(), proxy.trim() || undefined);
-      const latest = await codexTurnStateApi.list();
-      setItems(latest.items ?? []);
-      setMessage('刷新成功；如果上游没有返回新值，说明原值仍然有效。');
+      const result = await codexTurnStateApi.refresh(
+        fileAuthID(file),
+        row.model.trim(),
+        proxy.trim() || undefined
+      );
+      updateRow(row.id, { value: result.value });
+      setMessage(t('auth_files.codex_turn_state_refresh_success'));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : '刷新失败，旧值已保留');
+      setMessage(
+        error instanceof Error ? error.message : t('auth_files.codex_turn_state_refresh_failed')
+      );
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const refreshAll = async () => {
+    if (!file) return;
+    const targets = rows.filter((row) => row.model.trim());
+    setRefreshing(true);
+    setMessage('');
+    try {
+      const results: Row[] = [];
+      for (let index = 0; index < targets.length; index += 3) {
+        const batch = targets.slice(index, index + 3);
+        const batchResults = await Promise.all(
+          batch.map(async (row) => {
+            try {
+              const result = await codexTurnStateApi.refresh(
+                fileAuthID(file),
+                row.model.trim(),
+                proxy.trim() || undefined
+              );
+              return { ...row, value: result.value };
+            } catch {
+              return row;
+            }
+          })
+        );
+        results.push(...batchResults);
+      }
+      setRows((current) => current.map((row) => results.find((item) => item.id === row.id) || row));
+      setMessage(t('auth_files.codex_turn_state_refresh_all_done'));
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const deleteRow = async (row: Row) => {
+    if (!file || !row.model.trim()) {
+      setRows((current) => current.filter((item) => item.id !== row.id));
+      return;
+    }
+    setMessage('');
+    try {
+      await codexTurnStateApi.remove(fileAuthID(file), row.model.trim());
+      setRows((current) => current.filter((item) => item.id !== row.id));
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : t('auth_files.codex_turn_state_delete_failed')
+      );
     }
   };
 
@@ -78,51 +152,109 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     <Modal
       open={open}
       onClose={onClose}
-      width={620}
-      title={`设置 X-Codex-Turn-State${file ? ` · ${file.email || file.name}` : ''}`}
+      width={780}
+      title={t('auth_files.codex_turn_state_title')}
       footer={
         <div className={styles.actions}>
-          <Button variant="secondary" onClick={onClose} disabled={refreshing}>
-            关闭
-          </Button>
-          <Button onClick={() => void refresh()} loading={refreshing} disabled={disableControls || loading || !model.trim()}>
-            刷新并保存
+          <Button variant="secondary" onClick={onClose}>
+            {t('common.close')}
           </Button>
         </div>
       }
     >
       <div className={styles.content}>
         <p className={styles.intro}>
-          此值按当前认证账号和上游模型固定保存。服务端会接管下游请求头；上游不返回新值时，表示当前值仍然有效。
+          {t('auth_files.codex_turn_state_intro')}
         </p>
+        <Input
+          label={t('auth_files.codex_turn_state_proxy_label')}
+          value={proxy}
+          onChange={(event) => setProxy(event.target.value)}
+          placeholder="socks5://user:password@host:port"
+          hint={t('auth_files.codex_turn_state_proxy_hint')}
+        />
+        <div className={styles.toolbar}>
+          <strong>{t('auth_files.codex_turn_state_model_config')}</strong>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => void refreshAll()}
+            disabled={disableControls || refreshing || loading || !rows.length}
+          >
+            <IconRefreshCw size={14} /> {t('auth_files.codex_turn_state_refresh_all')}
+          </Button>
+        </div>
+        <div className={styles.tableHead}>
+          <span>{t('auth_files.codex_turn_state_model')}</span>
+          <span>{t('auth_files.codex_turn_state_value')}</span>
+          <span aria-hidden="true" />
+        </div>
         {loading ? (
           <LoadingSpinner size={18} />
         ) : (
-          <>
-            <Input
-              label="上游模型"
-              list="codex-turn-state-models"
-              value={model}
-              onChange={(event) => setModel(event.target.value)}
-              placeholder="gpt-5.6-terra"
-            />
-            <datalist id="codex-turn-state-models">
-              {models.map((item) => <option key={item} value={item} />)}
-            </datalist>
-            <Input
-              label="刷新代理（可选）"
-              value={proxy}
-              onChange={(event) => setProxy(event.target.value)}
-              placeholder="socks5://user:password@host:port"
-              hint="支持 http://、https://、socks5://、socks5h://"
-            />
-            <div className={styles.state}>
-              <span className={styles.stateLabel}>当前服务端值</span>
-              <span className={styles.stateValue}>{currentState?.value || '尚未获取'}</span>
+          rows.map((row) => (
+            <div className={styles.row} key={row.id}>
+              <select
+                aria-label={t('auth_files.codex_turn_state_select_model')}
+                className="input"
+                value={row.model}
+                onChange={(event) => updateRow(row.id, { model: event.target.value, value: '' })}
+              >
+                <option value="">{t('auth_files.codex_turn_state_select_model')}</option>
+                {modelOptions.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
+              </select>
+              <div className={styles.valueField}>
+                <Input
+                  aria-label={t('auth_files.codex_turn_state_value')}
+                  value={row.value}
+                  placeholder={t('auth_files.codex_turn_state_not_fetched')}
+                  readOnly
+                />
+              </div>
+              <div className={styles.rowActions}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className={styles.iconButton}
+                  onClick={() => void refreshRow(row)}
+                  disabled={disableControls || refreshing || !row.model.trim()}
+                  title={t('common.refresh')}
+                >
+                  <IconRefreshCw size={15} />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="danger"
+                  className={styles.iconButton}
+                  onClick={() => void deleteRow(row)}
+                  disabled={disableControls || refreshing || rows.length <= 1}
+                  title={t('common.delete')}
+                >
+                  <IconTrash2 size={15} />
+                </Button>
+              </div>
             </div>
-          </>
+          ))
         )}
-        {message && <div className={styles.error} role="status">{message}</div>}
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() =>
+            setRows((current) => [...current, { id: Date.now(), model: '', value: '' }])
+          }
+          disabled={refreshing || disableControls}
+        >
+          <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
+        </Button>
+        {message && (
+          <div className={styles.error} role="status">
+            {message}
+          </div>
+        )}
       </div>
     </Modal>
   );

@@ -341,7 +341,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
                   size="sm"
                   onClick={() => onOpenCodexTurnState(file)}
                   className={styles.iconButton}
-                  title="设置 X-Codex-Turn-State"
+                  title={t('auth_files.codex_turn_state_button')}
                   disabled={disableControls || isManualRefreshing}
                 >
                   <IconSlidersHorizontal size={15} />

@@ -20,4 +20,6 @@ export const codexTurnStateApi = {
       '/codex-turn-state/refresh-all',
       { models, proxy_url },
     ),
+  remove: (auth_id: string, model: string) =>
+    apiClient.delete(`/codex-turn-state?auth_id=${encodeURIComponent(auth_id)}&model=${encodeURIComponent(model)}`),
 };

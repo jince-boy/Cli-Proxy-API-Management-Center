@@ -628,12 +628,6 @@ export function MainLayout() {
           icon: sidebarIcons.authFiles,
         },
         {
-          path: '/codex-turn-state',
-          label: 'Codex Turn State',
-          meta: '账号与模型级别的 Codex 状态管理',
-          icon: sidebarIcons.authFiles,
-        },
-        {
           path: '/oauth',
           labelKey: 'nav.oauth',
           metaKey: 'nav_meta.oauth',
