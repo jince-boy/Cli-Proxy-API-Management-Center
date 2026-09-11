@@ -163,9 +163,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
       }
     >
       <div className={styles.content}>
-        <p className={styles.intro}>
-          {t('auth_files.codex_turn_state_intro')}
-        </p>
+        <p className={styles.intro}>{t('auth_files.codex_turn_state_intro')}</p>
         <Input
           label={t('auth_files.codex_turn_state_proxy_label')}
           value={proxy}
@@ -194,19 +192,21 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         ) : (
           rows.map((row) => (
             <div className={styles.row} key={row.id}>
-              <select
-                aria-label={t('auth_files.codex_turn_state_select_model')}
-                className="input"
-                value={row.model}
-                onChange={(event) => updateRow(row.id, { model: event.target.value, value: '' })}
-              >
-                <option value="">{t('auth_files.codex_turn_state_select_model')}</option>
-                {modelOptions.map((item) => (
-                  <option key={item} value={item}>
-                    {item}
-                  </option>
-                ))}
-              </select>
+              <div className={styles.fieldControl}>
+                <select
+                  aria-label={t('auth_files.codex_turn_state_select_model')}
+                  className="input"
+                  value={row.model}
+                  onChange={(event) => updateRow(row.id, { model: event.target.value, value: '' })}
+                >
+                  <option value="">{t('auth_files.codex_turn_state_select_model')}</option>
+                  {modelOptions.map((item) => (
+                    <option key={item} value={item}>
+                      {item}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div className={styles.valueField}>
                 <Input
                   aria-label={t('auth_files.codex_turn_state_value')}

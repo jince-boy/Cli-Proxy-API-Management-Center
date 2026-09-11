@@ -62,6 +62,16 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+.fieldControl,
+.valueField {
+  min-width: 0;
+}
+
+.fieldControl :global(.input),
+.valueField :global(.form-group) {
+  margin-bottom: 0;
+}
+
 .rowActions {
   display: flex;
   gap: 6px;
@@ -79,7 +89,7 @@
   .row {
     grid-template-columns: 1fr auto;
   }
-  .row > select,
+  .fieldControl,
   .valueField {
     grid-column: 1 / -1;
   }
