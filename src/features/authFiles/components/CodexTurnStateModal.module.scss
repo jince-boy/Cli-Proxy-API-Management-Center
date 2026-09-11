@@ -1,0 +1,46 @@
+.content {
+  display: grid;
+  gap: 18px;
+}
+
+.intro {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.state {
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--surface-muted);
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.stateLabel {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.stateValue {
+  color: var(--text-primary);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--danger-text, #c43d3d);
+  background: var(--danger-surface, rgba(196, 61, 61, 0.1));
+  font-size: 13px;
+}

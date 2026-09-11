@@ -10,6 +10,7 @@ import {
   IconModelCluster,
   IconRefreshCw,
   IconSettings,
+  IconSlidersHorizontal,
   IconTrash2,
 } from '@/components/ui/icons';
 import { ProviderStatusBar } from '@/components/providers/ProviderStatusBar';
@@ -55,6 +56,7 @@ export type AuthFileCardProps = {
   onDownload: (name: string) => void;
   onManualRefresh: (file: AuthFileItem) => void;
   onOpenPrefixProxyEditor: (file: AuthFileItem) => void;
+  onOpenCodexTurnState: (file: AuthFileItem) => void;
   onDelete: (name: string) => void;
   onToggleStatus: (file: AuthFileItem, enabled: boolean) => void;
   onToggleSelect: (name: string) => void;
@@ -84,6 +86,7 @@ export function AuthFileCard(props: AuthFileCardProps) {
     onDownload,
     onManualRefresh,
     onOpenPrefixProxyEditor,
+    onOpenCodexTurnState,
     onDelete,
     onToggleStatus,
     onToggleSelect,
@@ -332,6 +335,18 @@ export function AuthFileCard(props: AuthFileCardProps) {
               >
                 <IconDownload size={15} />
               </Button>
+              {providerKey === 'codex' && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onOpenCodexTurnState(file)}
+                  className={styles.iconButton}
+                  title="设置 X-Codex-Turn-State"
+                  disabled={disableControls || isManualRefreshing}
+                >
+                  <IconSlidersHorizontal size={15} />
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 size="sm"

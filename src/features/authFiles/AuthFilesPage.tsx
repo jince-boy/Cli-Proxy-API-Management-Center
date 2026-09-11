@@ -22,6 +22,7 @@ import {
 import { AuthFileCard } from '@/features/authFiles/components/AuthFileCard';
 import { AuthFileDetailsSheet } from '@/features/authFiles/components/AuthFileDetailsSheet';
 import { AuthFileModelsModal } from '@/features/authFiles/components/AuthFileModelsModal';
+import { CodexTurnStateModal } from '@/features/authFiles/components/CodexTurnStateModal';
 import { AuthFilesToolbar } from '@/features/authFiles/components/AuthFilesToolbar';
 import { BatchActionBar } from '@/features/authFiles/components/BatchActionBar';
 import { OAuthExcludedCard } from '@/features/authFiles/components/OAuthExcludedCard';
@@ -51,6 +52,7 @@ import {
   type AuthFilesSortMode,
 } from '@/features/authFiles/uiState';
 import { useAuthStore, useNotificationStore, useThemeStore } from '@/stores';
+import type { AuthFileItem } from '@/types';
 import styles from './AuthFilesPage.module.scss';
 
 const DEFAULT_REGULAR_PAGE_SIZE = 9;
@@ -95,6 +97,7 @@ export function AuthFilesPage() {
   const [viewMode, setViewMode] = useState<'diagram' | 'list'>('list');
   const [sortMode, setSortMode] = useState<AuthFilesSortMode>('default');
   const [uiStateHydrated, setUiStateHydrated] = useState(false);
+  const [codexTurnStateFile, setCodexTurnStateFile] = useState<AuthFileItem | null>(null);
 
   const {
     modelsModalOpen,
@@ -698,6 +701,7 @@ export function AuthFilesPage() {
                 onDownload={handleDownload}
                 onManualRefresh={handleManualRefresh}
                 onOpenPrefixProxyEditor={openPrefixProxyEditor}
+                onOpenCodexTurnState={setCodexTurnStateFile}
                 onDelete={handleDelete}
                 onToggleStatus={handleStatusToggle}
                 onToggleSelect={toggleSelect}
@@ -786,6 +790,12 @@ export function AuthFilesPage() {
         onCopyText={copyTextWithNotification}
         onSave={handlePrefixProxySave}
         onChange={handlePrefixProxyChange}
+      />
+      <CodexTurnStateModal
+        file={codexTurnStateFile}
+        open={Boolean(codexTurnStateFile)}
+        disableControls={disableControls}
+        onClose={() => setCodexTurnStateFile(null)}
       />
 
       <BatchActionBar
