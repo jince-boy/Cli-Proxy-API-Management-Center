@@ -4,7 +4,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { IconPlus, IconRefreshCw, IconTrash2 } from '@/components/ui/icons';
+import { IconPlus, IconRefreshCw, IconTrash2, IconDownload } from '@/components/ui/icons';
 import { authFilesApi } from '@/services/api';
 import { codexTurnStateApi } from '@/services/api/codexTurnState';
 import type { AuthFileItem } from '@/types';
@@ -29,6 +29,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
   const [proxy, setProxy] = useState('');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [savingProxy, setSavingProxy] = useState(false);
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -44,16 +45,13 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         const account = (stateResponse.items ?? []).find(
           (item) => item.auth_id === fileAuthID(file) || item.name === file.name
         );
+        setProxy(account?.proxy_url || '');
         const configured = Object.entries(account?.states ?? {}).map(([model, state], index) => ({
           id: index + 1,
           model,
           value: state.value || '',
         }));
-        setRows(
-          configured.length
-            ? configured
-            : [{ id: 1, model: models[0] || 'gpt-5.6-terra', value: '' }]
-        );
+        setRows(configured);
       })
       .catch((error) => {
         if (!cancelled) {
@@ -97,6 +95,43 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
       );
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const acquireRow = async (row: Row) => {
+    if (!file || !row.model.trim()) return;
+    setRefreshing(true);
+    setMessage('');
+    try {
+      const result = await codexTurnStateApi.acquire(
+        fileAuthID(file),
+        row.model.trim(),
+        proxy.trim() || undefined
+      );
+      updateRow(row.id, { value: result.value });
+      setMessage(t('auth_files.codex_turn_state_acquire_success'));
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : t('auth_files.codex_turn_state_acquire_failed')
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const saveProxy = async () => {
+    if (!file) return;
+    setSavingProxy(true);
+    setMessage('');
+    try {
+      await codexTurnStateApi.saveProxy(fileAuthID(file), proxy.trim());
+      setMessage(t('auth_files.codex_turn_state_proxy_saved'));
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : t('auth_files.codex_turn_state_proxy_save_failed')
+      );
+    } finally {
+      setSavingProxy(false);
     }
   };
 
@@ -164,13 +199,24 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     >
       <div className={styles.content}>
         <p className={styles.intro}>{t('auth_files.codex_turn_state_intro')}</p>
-        <Input
-          label={t('auth_files.codex_turn_state_proxy_label')}
-          value={proxy}
-          onChange={(event) => setProxy(event.target.value)}
-          placeholder="socks5://user:password@host:port"
-          hint={t('auth_files.codex_turn_state_proxy_hint')}
-        />
+        <div className={styles.proxyEditor}>
+          <Input
+            label={t('auth_files.codex_turn_state_proxy_label')}
+            value={proxy}
+            onChange={(event) => setProxy(event.target.value)}
+            placeholder="socks5://user:password@host:port"
+            hint={t('auth_files.codex_turn_state_proxy_hint')}
+          />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => void saveProxy()}
+            disabled={disableControls || loading || refreshing || savingProxy}
+            loading={savingProxy}
+          >
+            {t('common.save')}
+          </Button>
+        </div>
         <div className={styles.toolbar}>
           <strong>{t('auth_files.codex_turn_state_model_config')}</strong>
           <Button
@@ -228,10 +274,20 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
                 </Button>
                 <Button
                   size="sm"
+                  variant="primary"
+                  className={styles.iconButton}
+                  onClick={() => void acquireRow(row)}
+                  disabled={disableControls || refreshing || !row.model.trim()}
+                  title={t('auth_files.codex_turn_state_acquire')}
+                >
+                  <IconDownload size={15} />
+                </Button>
+                <Button
+                  size="sm"
                   variant="danger"
                   className={styles.iconButton}
                   onClick={() => void deleteRow(row)}
-                  disabled={disableControls || refreshing || rows.length <= 1}
+                  disabled={disableControls || refreshing}
                   title={t('common.delete')}
                 >
                   <IconTrash2 size={15} />

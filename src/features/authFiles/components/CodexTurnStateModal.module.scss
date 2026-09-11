@@ -37,6 +37,13 @@
   gap: 8px;
 }
 
+.proxyEditor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -83,6 +90,10 @@
 }
 
 @media (max-width: 700px) {
+  .proxyEditor {
+    grid-template-columns: 1fr;
+  }
+
   .tableHead {
     display: none;
   }

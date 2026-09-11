@@ -4,6 +4,7 @@ export type CodexTurnStateItem = {
   auth_id: string;
   name?: string;
   label?: string;
+  proxy_url?: string;
   states: Record<string, { value: string; fetched_at?: string; expires_at?: string }>;
 };
 
@@ -13,6 +14,17 @@ export const codexTurnStateApi = {
     apiClient.post<{ auth_id: string; model: string; value: string }>('/codex-turn-state/refresh', {
       auth_id,
       model,
+      proxy_url,
+    }),
+  acquire: (auth_id: string, model: string, proxy_url?: string) =>
+    apiClient.post<{ auth_id: string; model: string; value: string }>('/codex-turn-state/acquire', {
+      auth_id,
+      model,
+      proxy_url,
+    }),
+  saveProxy: (auth_id: string, proxy_url: string) =>
+    apiClient.post<{ auth_id: string; proxy_url: string }>('/codex-turn-state/proxy', {
+      auth_id,
       proxy_url,
     }),
   refreshAll: (models: string[], proxy_url?: string) =>
