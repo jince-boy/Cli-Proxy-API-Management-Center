@@ -4,7 +4,8 @@ import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { IconPlus, IconRefreshCw, IconTrash2, IconDownload } from '@/components/ui/icons';
+import { IconPlus, IconTrash2, IconDownload } from '@/components/ui/icons';
+import { ToggleSwitch } from '@/components/ui/ToggleSwitch';
 import { authFilesApi } from '@/services/api';
 import { codexTurnStateApi } from '@/services/api/codexTurnState';
 import type { AuthFileItem } from '@/types';
@@ -29,7 +30,8 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
   const [rows, setRows] = useState<Row[]>([]);
   const [proxy, setProxy] = useState('');
   const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [autoAcquire, setAutoAcquire] = useState(false);
   const [savingProxy, setSavingProxy] = useState(false);
   const [message, setMessage] = useState('');
   const [messageTone, setMessageTone] = useState<MessageTone>('success');
@@ -48,6 +50,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
           (item) => item.auth_id === fileAuthID(file) || item.name === file.name
         );
         setProxy(account?.proxy_url || '');
+        setAutoAcquire(Boolean(account?.auto_acquire));
         const configured = Object.entries(account?.states ?? {}).map(([model, state], index) => ({
           id: index + 1,
           model,
@@ -79,32 +82,9 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
   const updateRow = (id: number, patch: Partial<Row>) =>
     setRows((current) => current.map((row) => (row.id === id ? { ...row, ...patch } : row)));
 
-  const refreshRow = async (row: Row) => {
-    if (!file || !row.model.trim()) return;
-    setRefreshing(true);
-    setMessage('');
-    try {
-      const result = await codexTurnStateApi.refresh(
-        fileAuthID(file),
-        row.model.trim(),
-        proxy.trim() || undefined
-      );
-      updateRow(row.id, { value: result.value });
-      setMessageTone('success');
-      setMessage(t('auth_files.codex_turn_state_refresh_success'));
-    } catch (error) {
-      setMessageTone('error');
-      setMessage(
-        error instanceof Error ? error.message : t('auth_files.codex_turn_state_refresh_failed')
-      );
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const acquireRow = async (row: Row) => {
     if (!file || !row.model.trim()) return;
-    setRefreshing(true);
+    setBusy(true);
     setMessage('');
     try {
       const result = await codexTurnStateApi.acquire(
@@ -121,7 +101,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
         error instanceof Error ? error.message : t('auth_files.codex_turn_state_acquire_failed')
       );
     } finally {
-      setRefreshing(false);
+      setBusy(false);
     }
   };
 
@@ -143,36 +123,23 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
     }
   };
 
-  const refreshAll = async () => {
+  const saveAutoAcquire = async (enabled: boolean) => {
     if (!file) return;
-    const targets = rows.filter((row) => row.model.trim());
-    setRefreshing(true);
+    setAutoAcquire(enabled);
+    setBusy(true);
     setMessage('');
     try {
-      const results: Row[] = [];
-      for (let index = 0; index < targets.length; index += 3) {
-        const batch = targets.slice(index, index + 3);
-        const batchResults = await Promise.all(
-          batch.map(async (row) => {
-            try {
-              const result = await codexTurnStateApi.refresh(
-                fileAuthID(file),
-                row.model.trim(),
-                proxy.trim() || undefined
-              );
-              return { ...row, value: result.value };
-            } catch {
-              return row;
-            }
-          })
-        );
-        results.push(...batchResults);
-      }
-      setRows((current) => current.map((row) => results.find((item) => item.id === row.id) || row));
+      await codexTurnStateApi.saveAutoAcquire(fileAuthID(file), enabled);
       setMessageTone('success');
-      setMessage(t('auth_files.codex_turn_state_refresh_all_done'));
+      setMessage(t('auth_files.codex_turn_state_auto_saved'));
+    } catch (error) {
+      setAutoAcquire(!enabled);
+      setMessageTone('error');
+      setMessage(
+        error instanceof Error ? error.message : t('auth_files.codex_turn_state_auto_save_failed')
+      );
     } finally {
-      setRefreshing(false);
+      setBusy(false);
     }
   };
 
@@ -227,12 +194,24 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
               variant="secondary"
               className={styles.saveButton}
               onClick={() => void saveProxy()}
-              disabled={disableControls || loading || refreshing || savingProxy}
+              disabled={disableControls || loading || busy || savingProxy}
               loading={savingProxy}
             >
               {t('common.save')}
             </Button>
           </div>
+        </section>
+        <section className={styles.autoAcquireCard}>
+          <div>
+            <div className={styles.sectionTitle}>{t('auth_files.codex_turn_state_auto_label')}</div>
+            <div className={styles.sectionHint}>{t('auth_files.codex_turn_state_auto_hint')}</div>
+          </div>
+          <ToggleSwitch
+            checked={autoAcquire}
+            onChange={(enabled) => void saveAutoAcquire(enabled)}
+            ariaLabel={t('auth_files.codex_turn_state_auto_label')}
+            disabled={disableControls || loading || busy}
+          />
         </section>
         <section className={styles.section}>
           <div className={styles.toolbar}>
@@ -250,18 +229,9 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
                 onClick={() =>
                   setRows((current) => [...current, { id: Date.now(), model: '', value: '' }])
                 }
-                disabled={refreshing || disableControls}
+                disabled={busy || disableControls}
               >
                 <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                className={styles.toolbarButton}
-                onClick={() => void refreshAll()}
-                disabled={disableControls || refreshing || loading || !rows.length}
-              >
-                <IconRefreshCw size={14} /> {t('auth_files.codex_turn_state_refresh_all')}
               </Button>
             </div>
           </div>
@@ -283,7 +253,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
                   variant="secondary"
                   className={styles.toolbarButton}
                   onClick={() => setRows([{ id: Date.now(), model: '', value: '' }])}
-                  disabled={refreshing || disableControls}
+                  disabled={busy || disableControls}
                 >
                   <IconPlus size={14} /> {t('auth_files.codex_turn_state_add_model')}
                 </Button>
@@ -320,21 +290,10 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
                   <div className={styles.rowActions}>
                     <Button
                       size="sm"
-                      variant="secondary"
-                      className={styles.iconButton}
-                      onClick={() => void refreshRow(row)}
-                      disabled={disableControls || refreshing || !row.model.trim()}
-                      title={t('common.refresh')}
-                      aria-label={t('common.refresh')}
-                    >
-                      <IconRefreshCw size={14} />
-                    </Button>
-                    <Button
-                      size="sm"
                       variant="primary"
                       className={styles.iconButton}
                       onClick={() => void acquireRow(row)}
-                      disabled={disableControls || refreshing || !row.model.trim()}
+                      disabled={disableControls || busy || !row.model.trim()}
                       title={t('auth_files.codex_turn_state_acquire')}
                       aria-label={t('auth_files.codex_turn_state_acquire')}
                     >
@@ -345,7 +304,7 @@ export function CodexTurnStateModal({ file, open, disableControls, onClose }: Pr
                       variant="danger"
                       className={styles.iconButton}
                       onClick={() => void deleteRow(row)}
-                      disabled={disableControls || refreshing}
+                      disabled={disableControls || busy}
                       title={t('common.delete')}
                       aria-label={t('common.delete')}
                     >
