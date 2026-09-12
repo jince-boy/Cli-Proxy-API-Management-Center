@@ -61,7 +61,7 @@ export const CONFIG_FIELD_SEARCH_INDEX: ConfigFieldSearchEntry[] = [
     fieldId: 'apiKeys',
     sectionId: 'connectivity',
     labelKey: L('api_keys.label'),
-    yamlKeys: ['api-keys'],
+    yamlKeys: ['api-keys', 'api-key-auth-bindings'],
     keywords: ['api key', 'apikey', 'token'],
   },
   {

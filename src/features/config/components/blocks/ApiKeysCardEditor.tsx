@@ -2,23 +2,30 @@ import { memo, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { authFilesApi } from '@/services/api';
 import { useNotificationStore } from '@/stores';
+import type { AuthFileItem } from '@/types';
 import { copyToClipboard } from '@/utils/clipboard';
 import { makeClientId } from '@/types/visualConfig';
 import { generateSecureApiKey } from '@/utils/apiKey';
 import { maskApiKey } from '@/utils/format';
 import { isValidApiKeyCharset } from '@/utils/validation';
+import { deriveAuthFileIdentity } from '@/features/authFiles/identity';
 import { ApiKeyStrengthMeter } from './ApiKeyStrengthMeter';
 import styles from './Blocks.module.scss';
 
 export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
   value,
+  authBindings,
   disabled,
   onChange,
+  onAuthBindingsChange,
 }: {
   value: string;
+  authBindings: Record<string, string[]>;
   disabled?: boolean;
   onChange: (nextValue: string) => void;
+  onAuthBindingsChange: (nextBindings: Record<string, string[]>) => void;
 }) {
   const { t } = useTranslation();
   const showNotification = useNotificationStore((state) => state.showNotification);
@@ -47,20 +54,50 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
   const [editingApiKeyId, setEditingApiKeyId] = useState<string | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [formError, setFormError] = useState('');
+  const [accounts, setAccounts] = useState<AuthFileItem[]>([]);
+  const [accountsLoading, setAccountsLoading] = useState(false);
+  const [accountsError, setAccountsError] = useState(false);
+  const [useAllAccounts, setUseAllAccounts] = useState(true);
+  const [selectedAuthIndexes, setSelectedAuthIndexes] = useState<string[]>([]);
+
+  const loadAccounts = async () => {
+    setAccountsLoading(true);
+    setAccountsError(false);
+    try {
+      const response = await authFilesApi.listForBindings();
+      setAccounts(
+        response.files.filter(
+          (account) => typeof account.authIndex === 'string' && account.authIndex.trim() !== ''
+        )
+      );
+    } catch {
+      setAccountsError(true);
+    } finally {
+      setAccountsLoading(false);
+    }
+  };
 
   const openAddModal = () => {
     setEditingApiKeyId(null);
     setInputValue('');
     setFormError('');
+    setUseAllAccounts(true);
+    setSelectedAuthIndexes([]);
     setModalOpen(true);
+    void loadAccounts();
   };
 
   const openEditModal = (apiKeyId: string) => {
     const editingIndex = renderApiKeyIds.findIndex((id) => id === apiKeyId);
     setEditingApiKeyId(apiKeyId);
-    setInputValue(apiKeys[editingIndex] ?? '');
+    const apiKey = apiKeys[editingIndex] ?? '';
+    const boundIndexes = authBindings[apiKey] ?? [];
+    setInputValue(apiKey);
     setFormError('');
+    setUseAllAccounts(boundIndexes.length === 0);
+    setSelectedAuthIndexes([...boundIndexes]);
     setModalOpen(true);
+    void loadAccounts();
   };
 
   const closeModal = () => {
@@ -68,6 +105,8 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
     setInputValue('');
     setEditingApiKeyId(null);
     setFormError('');
+    setUseAllAccounts(true);
+    setSelectedAuthIndexes([]);
   };
 
   const updateApiKeys = (nextKeys: string[]) => {
@@ -78,6 +117,12 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
     const index = renderApiKeyIds.findIndex((id) => id === apiKeyId);
     if (index < 0) return;
     setApiKeyIds(renderApiKeyIds.filter((id) => id !== apiKeyId));
+    const deletedKey = apiKeys[index];
+    if (deletedKey && authBindings[deletedKey]) {
+      const nextBindings = { ...authBindings };
+      delete nextBindings[deletedKey];
+      onAuthBindingsChange(nextBindings);
+    }
     updateApiKeys(apiKeys.filter((_, i) => i !== index));
   };
 
@@ -91,6 +136,10 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
       setFormError(t('config_management.visual.api_keys.error_invalid'));
       return;
     }
+    if (!useAllAccounts && selectedAuthIndexes.length === 0) {
+      setFormError(t('config_management.visual.api_keys.error_accounts_empty'));
+      return;
+    }
 
     const editingIndex = editingApiKeyId
       ? renderApiKeyIds.findIndex((id) => id === editingApiKeyId)
@@ -102,6 +151,15 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
     if (editingApiKeyId === null) {
       setApiKeyIds([...renderApiKeyIds, makeClientId()]);
     }
+    const previousKey = editingIndex >= 0 ? apiKeys[editingIndex] : '';
+    const nextBindings = { ...authBindings };
+    if (previousKey && previousKey !== trimmed) delete nextBindings[previousKey];
+    if (useAllAccounts) {
+      delete nextBindings[trimmed];
+    } else {
+      nextBindings[trimmed] = [...selectedAuthIndexes];
+    }
+    onAuthBindingsChange(nextBindings);
     updateApiKeys(nextKeys);
     closeModal();
   };
@@ -117,6 +175,20 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
   const handleGenerate = () => {
     setInputValue(generateSecureApiKey());
     setFormError('');
+  };
+
+  const toggleAccount = (authIndex: string) => {
+    setSelectedAuthIndexes((current) =>
+      current.includes(authIndex)
+        ? current.filter((item) => item !== authIndex)
+        : [...current, authIndex]
+    );
+    setFormError('');
+  };
+
+  const accountLabel = (account: AuthFileItem) => {
+    const identity = deriveAuthFileIdentity(account);
+    return identity.primary || account.name;
   };
 
   return (
@@ -140,6 +212,13 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
                   {t('config_management.visual.api_keys.input_label')}
                 </div>
                 <div className="item-subtitle">{maskApiKey(String(key || ''))}</div>
+                <div className={styles.apiKeyBindingSummary}>
+                  {authBindings[key]?.length
+                    ? t('config_management.visual.api_keys.accounts_selected', {
+                        count: authBindings[key].length,
+                      })
+                    : t('config_management.visual.api_keys.accounts_all')}
+                </div>
               </div>
               <div className="item-actions">
                 <Button
@@ -230,6 +309,68 @@ export const ApiKeysCardEditor = memo(function ApiKeysCardEditor({
             </div>
           )}
         </div>
+        <fieldset className={styles.apiKeyAccountFieldset} disabled={disabled}>
+          <legend>{t('config_management.visual.api_keys.accounts_label')}</legend>
+          <label className={styles.apiKeyAccountChoice}>
+            <input
+              type="radio"
+              name={`${apiKeyInputId}-account-mode`}
+              checked={useAllAccounts}
+              onChange={() => {
+                setUseAllAccounts(true);
+                setFormError('');
+              }}
+            />
+            <span>
+              <strong>{t('config_management.visual.api_keys.accounts_all')}</strong>
+              <small>{t('config_management.visual.api_keys.accounts_all_hint')}</small>
+            </span>
+          </label>
+          <label className={styles.apiKeyAccountChoice}>
+            <input
+              type="radio"
+              name={`${apiKeyInputId}-account-mode`}
+              checked={!useAllAccounts}
+              onChange={() => setUseAllAccounts(false)}
+            />
+            <span>
+              <strong>{t('config_management.visual.api_keys.accounts_specific')}</strong>
+              <small>{t('config_management.visual.api_keys.accounts_specific_hint')}</small>
+            </span>
+          </label>
+          {!useAllAccounts && (
+            <div className={styles.apiKeyAccountList}>
+              {accountsLoading ? (
+                <div className="hint">{t('common.loading')}</div>
+              ) : accountsError ? (
+                <div className="error-box">
+                  {t('config_management.visual.api_keys.accounts_load_error')}
+                </div>
+              ) : accounts.length === 0 ? (
+                <div className="hint">{t('config_management.visual.api_keys.accounts_empty')}</div>
+              ) : (
+                accounts.map((account) => {
+                  const authIndex = String(account.authIndex);
+                  return (
+                    <label key={authIndex} className={styles.apiKeyAccountItem}>
+                      <input
+                        type="checkbox"
+                        checked={selectedAuthIndexes.includes(authIndex)}
+                        onChange={() => toggleAccount(authIndex)}
+                      />
+                      <span>
+                        <strong>{accountLabel(account)}</strong>
+                        <small>
+                          {String(account.provider || account.type || '')} · {account.name}
+                        </small>
+                      </span>
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </fieldset>
       </Modal>
     </div>
   );

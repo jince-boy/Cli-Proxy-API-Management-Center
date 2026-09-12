@@ -305,6 +305,21 @@ export const normalizeAuthFilesResponse = (payload: AuthFilesResponse): AuthFile
   };
 };
 
+export const normalizeAuthFilesForBindings = (payload: AuthFilesResponse): AuthFilesResponse => {
+  const files = Array.isArray(payload?.files) ? payload.files : [];
+  const normalizedFiles = files.map(normalizeAuthFileEntry);
+  normalizedFiles.sort((left, right) => {
+    const providerOrder = String(left.provider ?? left.type ?? '').localeCompare(
+      String(right.provider ?? right.type ?? '')
+    );
+    if (providerOrder !== 0) return providerOrder;
+    const nameOrder = String(left.name ?? '').localeCompare(String(right.name ?? ''));
+    if (nameOrder !== 0) return nameOrder;
+    return String(left.authIndex ?? '').localeCompare(String(right.authIndex ?? ''));
+  });
+  return { ...payload, files: normalizedFiles, total: normalizedFiles.length };
+};
+
 const normalizeOauthExcludedModels = (payload: unknown): Record<string, string[]> => {
   if (!payload || typeof payload !== 'object') return {};
 
@@ -416,6 +431,9 @@ export const buildManualRefreshExpiredAt = (nowMs = Date.now()): string =>
 export const authFilesApi = {
   list: async () =>
     normalizeAuthFilesResponse(await apiClient.get<AuthFilesResponse>('/auth-files')),
+
+  listForBindings: async () =>
+    normalizeAuthFilesForBindings(await apiClient.get<AuthFilesResponse>('/auth-files')),
 
   setStatus: (name: string, disabled: boolean) =>
     apiClient.patch<AuthFileStatusResponse>('/auth-files/status', { name, disabled }),

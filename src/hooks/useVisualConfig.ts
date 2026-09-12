@@ -70,6 +70,22 @@ function resolveApiKeysText(parsed: Record<string, unknown>): string {
   return parseApiKeysText(configApiKeyProvider['api-keys']);
 }
 
+function parseApiKeyAuthBindings(raw: unknown): Record<string, string[]> {
+  const record = asRecord(raw);
+  if (!record) return {};
+
+  const bindings: Record<string, string[]> = {};
+  Object.entries(record).forEach(([rawApiKey, rawIndexes]) => {
+    const apiKey = rawApiKey.trim();
+    if (!apiKey || !Array.isArray(rawIndexes)) return;
+    const indexes = Array.from(
+      new Set(rawIndexes.map((item) => String(item ?? '').trim()).filter(Boolean))
+    );
+    if (indexes.length > 0) bindings[apiKey] = indexes;
+  });
+  return bindings;
+}
+
 type YamlDocument = ReturnType<typeof parseDocument>;
 type YamlPath = string[];
 
@@ -331,6 +347,23 @@ function areStringArraysEqual(left: string[] | undefined, right: string[] | unde
     if (leftItems[i] !== rightItems[i]) return false;
   }
   return true;
+}
+
+function areApiKeyAuthBindingsEqual(
+  left: Record<string, string[]> | undefined,
+  right: Record<string, string[]> | undefined
+): boolean {
+  const leftBindings = left ?? {};
+  const rightBindings = right ?? {};
+  const leftKeys = Object.keys(leftBindings).sort();
+  const rightKeys = Object.keys(rightBindings).sort();
+  if (!areStringArraysEqual(leftKeys, rightKeys)) return false;
+  return leftKeys.every((key) =>
+    areStringArraysEqual(
+      [...(leftBindings[key] ?? [])].sort(),
+      [...(rightBindings[key] ?? [])].sort()
+    )
+  );
 }
 
 function arePluginStoreAuthRulesEqual(
@@ -928,6 +961,12 @@ function getNextDirtyFields(
       areStringArraysEqual(nextValues.pluginStoreSources, baselineValues.pluginStoreSources)
     );
   }
+  if (Object.prototype.hasOwnProperty.call(patch, 'apiKeyAuthBindings')) {
+    updateDirty(
+      'apiKeyAuthBindings',
+      areApiKeyAuthBindingsEqual(nextValues.apiKeyAuthBindings, baselineValues.apiKeyAuthBindings)
+    );
+  }
   if (Object.prototype.hasOwnProperty.call(patch, 'antigravitySensitiveWords')) {
     updateDirty(
       'antigravitySensitiveWords',
@@ -1111,6 +1150,7 @@ export function useVisualConfig() {
 
         authDir: typeof parsed['auth-dir'] === 'string' ? parsed['auth-dir'] : '',
         apiKeysText: resolveApiKeysText(parsed),
+        apiKeyAuthBindings: parseApiKeyAuthBindings(parsed['api-key-auth-bindings']),
         pluginsEnabled: Boolean(plugins?.enabled),
         pluginStoreSources: parseStringList(plugins?.['store-sources']),
         pluginStoreAuth: parsePluginStoreAuthRules(plugins?.['store-auth']),
@@ -1295,6 +1335,24 @@ export function useVisualConfig() {
             doc.deleteIn(['api-keys']);
           }
           deleteLegacyApiKeysProvider(doc);
+        }
+        if (dirtyFields.has('apiKeyAuthBindings') || dirtyFields.has('apiKeysText')) {
+          const activeKeys = new Set(
+            values.apiKeysText
+              .split('\n')
+              .map((key) => key.trim())
+              .filter(Boolean)
+          );
+          const bindings = Object.fromEntries(
+            Object.entries(values.apiKeyAuthBindings).filter(
+              ([apiKey, authIndexes]) => activeKeys.has(apiKey) && authIndexes.length > 0
+            )
+          );
+          if (Object.keys(bindings).length > 0) {
+            doc.setIn(['api-key-auth-bindings'], bindings);
+          } else if (docHas(doc, ['api-key-auth-bindings'])) {
+            doc.deleteIn(['api-key-auth-bindings']);
+          }
         }
 
         const pluginsDirty =
