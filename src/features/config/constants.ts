@@ -139,6 +139,7 @@ export const FIELD_VALUE_KEYS: Record<string, readonly string[]> = {
   pluginStoreSources: ['pluginStoreSources'],
   pluginStoreAuth: ['pluginStoreAuth'],
   antigravitySensitiveWords: ['antigravitySensitiveWords'],
+  devinSensitiveWords: ['devinSensitiveWords'],
   antigravitySignatureCacheEnabled: ['antigravitySignatureCacheEnabled'],
   antigravitySignatureBypassStrict: ['antigravitySignatureBypassStrict'],
   claudeHeaderUserAgent: ['claudeHeaderUserAgent'],
